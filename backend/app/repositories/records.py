@@ -25,7 +25,7 @@ class PropertyRecord(Base):
     available: Mapped[bool] = mapped_column(Boolean, index=True)
     assigned_employee: Mapped[str] = mapped_column(String(128))
     source_version: Mapped[str] = mapped_column(String(64))
-    source: Mapped[str] = mapped_column(String(255), default="demo-fixture")
+    source: Mapped[str] = mapped_column(String(255), default="unverified")
     imported_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

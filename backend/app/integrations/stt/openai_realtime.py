@@ -124,19 +124,33 @@ class OpenAIRealtimeSTT:
                             )
 
                 sender = asyncio.create_task(send_audio())
+                receiver = asyncio.create_task(connection.recv())
                 try:
                     while True:
                         if sender.done():
                             error = sender.exception()
                             if error:
                                 raise error
-                            # Drain pending transcription events briefly after audio_end.
                             try:
-                                raw = await asyncio.wait_for(connection.recv(), timeout=1.0)
+                                raw = await asyncio.wait_for(receiver, timeout=1.0)
                             except TimeoutError:
                                 return
                         else:
-                            raw = await connection.recv()
+                            done, _ = await asyncio.wait(
+                                {sender, receiver},
+                                return_when=asyncio.FIRST_COMPLETED,
+                            )
+                            if receiver in done:
+                                raw = receiver.result()
+                            else:
+                                error = sender.exception()
+                                if error:
+                                    raise error
+                                try:
+                                    raw = await asyncio.wait_for(receiver, timeout=1.0)
+                                except TimeoutError:
+                                    return
+                        receiver = asyncio.create_task(connection.recv())
                         try:
                             message: Any = json.loads(raw)
                         except (json.JSONDecodeError, TypeError):
@@ -150,9 +164,10 @@ class OpenAIRealtimeSTT:
                             if code != "input_audio_buffer_commit_empty":
                                 raise STTProviderError("OpenAI Realtime transcription failed")
                 finally:
-                    if not sender.done():
-                        sender.cancel()
-                    await asyncio.gather(sender, return_exceptions=True)
+                    for task in (sender, receiver):
+                        if not task.done():
+                            task.cancel()
+                    await asyncio.gather(sender, receiver, return_exceptions=True)
         except STTProviderError:
             raise
         except asyncio.CancelledError:

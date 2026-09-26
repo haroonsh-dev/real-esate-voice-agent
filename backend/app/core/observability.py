@@ -61,6 +61,8 @@ class TraceStore:
                 "count": len(values),
                 "p50": percentile(list(values), 0.50),
                 "p95": percentile(list(values), 0.95),
+                "p99": percentile(list(values), 0.99),
+                "mean": sum(values) / len(values) if values else 0,
             }
             for name, values in self.measurements.items()
         }
@@ -69,5 +71,6 @@ class TraceStore:
             "counters": dict(self.counts),
             "measurements": measurements,
             "p95_ms": percentile(durations, 0.95),
+            "mean_ms": sum(durations) / len(durations) if durations else 0,
             "recent": [asdict(item) for item in list(self.events)[-20:]],
         }

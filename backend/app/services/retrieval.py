@@ -27,7 +27,9 @@ class GroundedRetriever:
                 property_id=item.id,
                 version=item.source_version,
                 text=(
-                    f"{item.title}. {item.area}, {item.city}. Price PKR {item.price_pkr}. "
+                    f"Property ID {item.id}. {item.title}. {item.area}, {item.city}. Price PKR {item.price_pkr}. "
+                    f"Size {item.size_sqft} sqft, bedrooms {item.bedrooms}. Developer {item.developer}. "
+                    f"Schools: {', '.join(item.nearby_schools)}. Hospitals: {', '.join(item.nearby_hospitals)}. "
                     f"{item.payment_plan}. Amenities: {', '.join(item.amenities)}. "
                     f"Investment goals: {', '.join(item.investment_goals) or 'not specified'}."
                 ),
@@ -40,17 +42,19 @@ class GroundedRetriever:
     ) -> list[RetrievedChunk]:
         """Query external knowledge only after SQL has fixed property filters."""
 
-        if self.knowledge_store is None:
+        if self.knowledge_store is None or not properties:
             return []
         property_ids = [item.id for item in properties]
         try:
-            return self.knowledge_store.query(
+            chunks = self.knowledge_store.query(
                 query,
                 metadata_filter={"property_id": {"$in": property_ids}},
                 top_k=top_k,
             )
         except RAGProviderError:
             return []
+        # Treat the remote store as a boundary: never trust its filter enforcement.
+        return [chunk for chunk in chunks if chunk.metadata.get("property_id") in property_ids][:top_k]
 
 
 def recommendation_score(property_item: Property, query: PropertyQuery) -> float:

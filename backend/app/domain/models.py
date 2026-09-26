@@ -37,8 +37,8 @@ class Property(BaseModel):
     payment_plan: str
     available: bool
     assigned_employee: str
-    source_version: str = "demo-v1"
-    source: str = "demo-fixture"
+    source_version: str = "unspecified"
+    source: str = "unverified"
     imported_at: datetime | None = None
 
 
@@ -75,8 +75,10 @@ class AgentDecision(BaseModel):
 
 class AppointmentRequest(BaseModel):
     property_id: str
-    employee: str = "Ayesha Khan"
+    employee: str = Field(min_length=2, max_length=128)
     employee_email: EmailStr | None = None
+    requirements: str = Field(default="", max_length=1000)
+    meeting_notes: str = Field(default="", max_length=1000)
     starts_at: datetime
     client_name: str = Field(min_length=2, max_length=100)
     contact_email: EmailStr

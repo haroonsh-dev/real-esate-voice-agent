@@ -61,6 +61,8 @@ class GmailNotificationHandler:
             f"Client phone: {contact_phone or 'consented contact on file'}\n"
             f"Start: {payload.get('starts_at', 'unknown')}\n"
             f"Employee: {payload.get('employee', 'unknown')}\n"
+            f"Requirements: {payload.get('requirements') or 'See consented customer preferences in CRM'}\n"
+            f"Meeting notes: {payload.get('meeting_notes') or 'Property viewing appointment'}\n"
         )
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
         result = service.users().messages().send(userId="me", body={"raw": raw}).execute()

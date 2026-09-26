@@ -45,17 +45,20 @@ class PineconeKnowledgeStore:
             vectors = self.embedding_provider.embed([chunk.text for chunk in chunks])
         except Exception as error:
             raise RAGProviderError(f"Embedding upsert failed: {error}") from error
-        self.index.upsert(
-            vectors=[
-                {
-                    "id": chunk.source_id,
-                    "values": vector,
-                    "metadata": {**chunk.metadata, "text": chunk.text},
-                }
-                for chunk, vector in zip(chunks, vectors, strict=True)
-            ],
-            namespace=self.namespace,
-        )
+        try:
+            self.index.upsert(
+                vectors=[
+                    {
+                        "id": chunk.source_id,
+                        "values": vector,
+                        "metadata": {**chunk.metadata, "text": chunk.text},
+                    }
+                    for chunk, vector in zip(chunks, vectors, strict=True)
+                ],
+                namespace=self.namespace,
+            )
+        except Exception as error:
+            raise RAGProviderError("Vector upsert failed") from error
 
     def query(
         self,
@@ -67,13 +70,16 @@ class PineconeKnowledgeStore:
             vector = self.embedding_provider.embed([text])[0]
         except Exception as error:
             raise RAGProviderError(f"Embedding query failed: {error}") from error
-        result = self.index.query(
-            vector=vector,
-            top_k=top_k,
-            include_metadata=True,
-            namespace=self.namespace,
-            filter=metadata_filter or {},
-        )
+        try:
+            result = self.index.query(
+                vector=vector,
+                top_k=top_k,
+                include_metadata=True,
+                namespace=self.namespace,
+                filter=metadata_filter or {},
+            )
+        except Exception as error:
+            raise RAGProviderError("Vector query failed") from error
         matches = (
             result.get("matches", [])
             if isinstance(result, dict)
@@ -98,11 +104,12 @@ class PineconeKnowledgeStore:
         return chunks
 
 
-def build_knowledge_store(config: object) -> PineconeKnowledgeStore | None:
+def build_knowledge_store(config: object) -> object | None:
     api_key = getattr(config, "pinecone_api_key", None)
     index_name = getattr(config, "pinecone_index", None)
     openai_key = getattr(config, "openai_api_key", None)
-    if not api_key or not index_name or not openai_key:
+    provider = getattr(config, "rag_provider", "pinecone")
+    if not openai_key or (provider == "pinecone" and (not api_key or not index_name)):
         return None
     from app.integrations.llm import LLMDecisionError, OpenAIEmbeddingProvider
 
@@ -112,6 +119,10 @@ def build_knowledge_store(config: object) -> PineconeKnowledgeStore | None:
             model=getattr(config, "embedding_model", "text-embedding-3-small"),
             timeout_seconds=float(getattr(config, "llm_timeout_seconds", 20.0)),
         )
+        if provider == "faiss":
+            from app.integrations.rag.faiss_local import FaissKnowledgeStore
+
+            return FaissKnowledgeStore(getattr(config, "rag_local_path", "artifacts/knowledge/faiss.json"), embeddings)
         return PineconeKnowledgeStore(
             api_key,
             index_name,

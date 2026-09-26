@@ -55,7 +55,10 @@ class GoogleCalendarHandler:
                 f"Client: {payload.get('client_name', 'unknown')}\n"
                 f"Client contact: {contact_email or 'consented contact on file'}\n"
                 f"Client phone: {contact_phone or 'consented contact on file'}\n"
-                f"Assigned employee: {payload.get('employee', 'assigned employee')}"
+                f"Assigned employee: {payload.get('employee', 'assigned employee')}\n"
+                f"Property: {payload.get('property_id', 'unknown')}\n"
+                f"Meeting notes: {payload.get('meeting_notes') or 'Property viewing appointment'}\n"
+                f"Requirements: {payload.get('requirements') or 'See consented customer preferences in CRM'}"
             ),
             "start": {"dateTime": starts_at.isoformat(), "timeZone": "Asia/Karachi"},
             "end": {"dateTime": ends_at.isoformat(), "timeZone": "Asia/Karachi"},

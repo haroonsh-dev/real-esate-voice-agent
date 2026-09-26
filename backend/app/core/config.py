@@ -1,8 +1,9 @@
 import ipaddress
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import model_validator
+from pydantic import EmailStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -36,6 +37,8 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str | None = None
     elevenlabs_model: str = "eleven_multilingual_v2"
     llm_timeout_seconds: float = 20.0
+    rag_provider: Literal["pinecone", "faiss"] = "pinecone"
+    rag_local_path: str = "artifacts/knowledge/faiss.json"
     pinecone_api_key: str | None = None
     pinecone_index: str | None = None
     pinecone_namespace: str = "default"
@@ -61,7 +64,7 @@ class Settings(BaseSettings):
     stt_utterance_end_ms: int = 1_000
     stt_min_confidence: float = 0.55
     voice_max_audio_frame_bytes: int = 16_384
-    voice_audio_queue_frames: int = 32
+    voice_audio_queue_frames: int = 256
     voice_max_event_bytes: int = 8_192
     voice_max_ws_message_bytes: int = 32_768
     voice_ws_protocol_queue: int = 16
@@ -74,12 +77,30 @@ class Settings(BaseSettings):
     google_client_secret_path: str | None = None
     google_calendar_id: str = "primary"
     gmail_sender: str | None = None
+    employee_email_directory: dict[str, EmailStr] = {}
+    n8n_webhook_url: str | None = None
+    n8n_webhook_token: str | None = None
     outbox_poll_seconds: float = 1.0
     outbox_max_attempts: int = 8
     max_upload_bytes: int = 10_000_000
 
     @model_validator(mode="after")
     def validate_runtime_boundary(self) -> "Settings":
+        if bool(self.n8n_webhook_url) != bool(self.n8n_webhook_token):
+            raise ValueError("N8N_WEBHOOK_URL and N8N_WEBHOOK_TOKEN must be configured together")
+        if self.n8n_webhook_url:
+            parsed_n8n = urlparse(self.n8n_webhook_url)
+            local_n8n = parsed_n8n.hostname in {"127.0.0.1", "localhost", "::1"}
+            if (not parsed_n8n.hostname or parsed_n8n.username or parsed_n8n.password
+                or parsed_n8n.fragment or parsed_n8n.query
+                or (parsed_n8n.scheme != "https" and not (
+                    self.app_env == "development" and local_n8n and parsed_n8n.scheme == "http"
+                ))):
+                raise ValueError("N8N_WEBHOOK_URL must use HTTPS (local HTTP allowed in development)")
+        if self.app_env != "development" and self.llm_provider != "openai":
+            raise ValueError("LLM_PROVIDER=openai is required for live conversations")
+        if self.app_env != "development" and not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is required for live conversations")
         trusted_proxy_entries = [entry.strip() for entry in self.trusted_proxy_ips.split(",")]
         if not trusted_proxy_entries or any(
             not entry or entry == "*" for entry in trusted_proxy_entries

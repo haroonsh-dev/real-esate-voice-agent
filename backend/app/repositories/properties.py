@@ -70,11 +70,10 @@ class SqlPropertyRepository:
         return values
 
     def get_available(self, property_id: str) -> Property | None:
-        normalized_id = property_id.replace("DEMO-", "PROP-") if property_id.startswith("DEMO-") else property_id
         with self.session_factory() as session:
             record = session.scalar(
                 select(PropertyRecord).where(
-                    (PropertyRecord.id == property_id) | (PropertyRecord.id == normalized_id),
+                    PropertyRecord.id == property_id,
                     PropertyRecord.available.is_(True),
                 )
             )
@@ -83,7 +82,7 @@ class SqlPropertyRepository:
     def import_properties(
         self,
         values: list[Property],
-        source: str = "demo-fixture",
+        source: str = "manual-import",
         validation_errors: list[dict[str, object]] | None = None,
     ) -> str:
         imported_at = datetime.now(UTC)

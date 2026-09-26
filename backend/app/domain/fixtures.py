@@ -1,6 +1,5 @@
 from app.domain.models import Property
 
-
 REAL_PAKISTANI_PROPERTIES = {
     1: {
         "title": "Emaar Coral Towers 2-Bed Oceanfront Luxury Apartment, Crescent Bay, DHA Phase 8, Karachi",

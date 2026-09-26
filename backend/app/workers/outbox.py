@@ -13,6 +13,14 @@ from app.repositories.database import SessionLocal
 from app.repositories.records import OutboxEventRecord
 
 
+class PartialDeliveryError(RuntimeError):
+    """Preserve successful provider receipts when a later integration fails."""
+
+    def __init__(self, receipts: dict[str, object], cause: Exception) -> None:
+        super().__init__(str(cause))
+        self.receipts = receipts
+
+
 class OutboxHandler(Protocol):
     async def __call__(self, payload: dict[str, object]) -> dict[str, object] | None: ...
 
@@ -78,7 +86,11 @@ class OutboxWorker:
             try:
                 result = await handler(payload)
             except Exception as error:  # noqa: BLE001 - worker must persist retry state
-                await self._fail(event_id, str(error)[:500])
+                await self._fail(
+                    event_id,
+                    str(error)[:500],
+                    error.receipts if isinstance(error, PartialDeliveryError) else None,
+                )
                 failed += 1
             else:
                 await self._succeed(event_id, result)
@@ -100,7 +112,9 @@ class OutboxWorker:
                 event.claimed_at = None
                 event.claimed_by = None
 
-    async def _fail(self, event_id: str, message: str) -> None:
+    async def _fail(
+        self, event_id: str, message: str, receipts: dict[str, object] | None = None
+    ) -> None:
         with SessionLocal.begin() as session:
             event = session.get(OutboxEventRecord, event_id)
             if (
@@ -109,6 +123,8 @@ class OutboxWorker:
                 or event.claimed_by != self.worker_id
             ):
                 return
+            if receipts is not None:
+                event.payload = {**event.payload, "_delivery_receipts": receipts}
             event.attempts += 1
             event.last_error = message
             delay = min(3600, 2 ** min(event.attempts, 10))
