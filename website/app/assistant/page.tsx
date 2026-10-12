@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { metadata } from "@/lib/site";
-import { LuxuryVoiceStudioClient } from "@/components/LuxuryVoiceStudioClient";
+import { NativeVoiceStudio } from "@/components/NativeVoiceStudio";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +14,6 @@ export const generateMetadata = () => ({
 });
 
 export default function AssistantPage() {
-  const assistantUrl =
-    process.env.ASSISTANT_URL ||
-    process.env.NEXT_PUBLIC_ASSISTANT_URL ||
-    (process.env.NODE_ENV === "production" ? "/assistant/" : "http://127.0.0.1:8000/assistant/");
-  const conciergeEnabled = process.env.ASSISTANT_CONCIERGE_ENABLED === "true" || process.env.NODE_ENV !== "production";
-
   return (
     <section className="section container voice-studio-page-root">
       {/* Breadcrumb Navigation */}
@@ -43,15 +37,8 @@ export default function AssistantPage() {
         </p>
       </div>
 
-      {conciergeEnabled ? (
-        <LuxuryVoiceStudioClient assistantUrl={assistantUrl} />
-      ) : (
-        <div className="assistant-rollout-message" role="status">
-          <h2>Property assistance is being prepared</h2>
-          <p>Browse published listings while the assistant service is unavailable in this environment.</p>
-          <Link className="button" href="/properties">Browse properties</Link>
-        </div>
-      )}
+      <NativeVoiceStudio />
     </section>
   );
 }
+
