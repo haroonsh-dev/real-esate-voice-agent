@@ -225,7 +225,7 @@ function App() {
   const [readinessCheckFailed, setReadinessCheckFailed] = useState(false);
   const [readinessRefreshKey, setReadinessRefreshKey] = useState(0);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
-  const [showDrawer, setShowDrawer] = useState(true);
+  const [showDrawer, setShowDrawer] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [matchMessage, setMatchMessage] = useState("");
   const [inquiryPropertyId, setInquiryPropertyId] = useState<string | null>(null);
@@ -792,7 +792,6 @@ function App() {
       }
     }
     if (connecting || (connected && !force)) return;
-    setShowDrawer(true);
     setConnecting(true);
     setVoiceFailureStage(null);
     setTranscriptFinalized(false);
@@ -1878,6 +1877,17 @@ function App() {
             </button>
           )}
 
+          <button
+            type="button"
+            className={`dock-action-pill ${showDrawer ? "active" : ""}`}
+            onClick={() => setShowDrawer((prev) => !prev)}
+            aria-label="Toggle chat conversation"
+          >
+            <Icon>{paths.transcript}</Icon>
+            <span>{showDrawer ? "Hide Chat" : "Chat"}</span>
+            {matches.length > 0 && <span className="dock-count-badge">{matches.length}</span>}
+          </button>
+
           {matches.length >= 2 && (
             <button
               type="button"
@@ -1931,7 +1941,7 @@ function App() {
 
       </div>
 
-      {/* Persistent conversation and recommendations panel */}
+      {/* Optional conversation and recommendations panel (hidden unless user chooses Chat) */}
       {showDrawer && (
         <aside className="orbit-floating-drawer" aria-label="Conversation and property recommendations">
           <div className="drawer-bar-top">
@@ -1967,6 +1977,15 @@ function App() {
                   Compare ({comparedPropertyIds.length || Math.min(matches.length, 3)}) Side-by-Side
                 </button>
               )}
+              <button
+                type="button"
+                className="drawer-copy-btn"
+                onClick={() => setShowDrawer(false)}
+                aria-label="Close conversation panel"
+                title="Close chat"
+              >
+                <Icon>{paths.close}</Icon>
+              </button>
             </div>
           </div>
 
