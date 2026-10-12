@@ -806,6 +806,55 @@ function App() {
         body: JSON.stringify({ mode: voiceModeRef.current }),
       });
       if (!sessionResponse.ok) {
+        const SpeechRecognition =
+          typeof window !== "undefined"
+            ? (window as unknown as Record<string, unknown>).SpeechRecognition ||
+              (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+            : null;
+        if (typeof SpeechRecognition === "function") {
+          setConnecting(false);
+          setAudioAvailable(true);
+          setVoiceFailureStage(null);
+          setVoicePhase("listening");
+          setActiveActionLabel("Listening… Speak your requirement");
+          const rec = new (SpeechRecognition as new () => {
+            lang: string;
+            interimResults: boolean;
+            continuous: boolean;
+            onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+            onerror: (() => void) | null;
+            onend: (() => void) | null;
+            start: () => void;
+          })();
+          rec.lang = languageRef.current === "en" ? "en-US" : "en-PK";
+          rec.interimResults = true;
+          rec.continuous = false;
+          rec.onresult = (e) => {
+            let text = "";
+            let isFinal = false;
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+              text += e.results[i][0].transcript;
+              if (e.results[i].isFinal) isFinal = true;
+            }
+            setLiveTranscript(text);
+            setActiveActionLabel(`Hearing: ${text.slice(-120)}`);
+            if (isFinal && text.trim()) {
+              setLiveTranscript("");
+              setTranscriptFinalized(true);
+              void sendMessageRef.current(text.trim());
+            }
+          };
+          rec.onerror = () => {
+            setAudioAvailable(false);
+            setVoicePhase("idle");
+            setActiveActionLabel("Ready when you are — tap Start Voice Chat or type a question");
+          };
+          rec.onend = () => {
+            setAudioAvailable(false);
+          };
+          rec.start();
+          return;
+        }
         const errJson = await sessionResponse.json().catch(() => ({}));
         throw new Error(errJson.detail ?? `Voice session failed (${sessionResponse.status})`);
       }
@@ -1258,8 +1307,31 @@ function App() {
       setConversationFailed(false);
       setSubtitles(reply);
       setMessages((current) => [...current, { role: "agent", text: reply, time: stamp() }]);
-      setActiveActionLabel("Reply received");
-      setVoicePhase("idle");
+      setActiveActionLabel("Awaaz Estate is responding…");
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(reply);
+          utterance.lang = language === "en" ? "en-US" : "en-PK";
+          utterance.rate = 1.02;
+          setVoicePhase("speaking");
+          utterance.onend = () => {
+            setVoicePhase("idle");
+            setActiveActionLabel("Reply received");
+          };
+          utterance.onerror = () => {
+            setVoicePhase("idle");
+            setActiveActionLabel("Reply received");
+          };
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          setVoicePhase("idle");
+          setActiveActionLabel("Reply received");
+        }
+      } else {
+        setVoicePhase("idle");
+        setActiveActionLabel("Reply received");
+      }
 
       const rawIds: unknown = decision.property_ids || data.property_ids || [];
       const ids = Array.isArray(rawIds) ? rawIds.filter((id): id is string => typeof id === "string") : [];

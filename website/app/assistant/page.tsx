@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { metadata } from "@/lib/site";
-import { NativeVoiceStudio } from "@/components/NativeVoiceStudio";
+import { LuxuryVoiceStudioClient } from "@/components/LuxuryVoiceStudioClient";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,11 @@ export const generateMetadata = () => ({
 });
 
 export default function AssistantPage() {
+  const assistantUrl =
+    process.env.ASSISTANT_URL ||
+    process.env.NEXT_PUBLIC_ASSISTANT_URL ||
+    "/assistant-app/index.html";
+
   return (
     <section className="section container voice-studio-page-root">
       {/* Breadcrumb Navigation */}
@@ -37,7 +42,7 @@ export default function AssistantPage() {
         </p>
       </div>
 
-      <NativeVoiceStudio />
+      <LuxuryVoiceStudioClient assistantUrl={assistantUrl} />
     </section>
   );
 }
